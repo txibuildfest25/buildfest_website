@@ -1,10 +1,18 @@
-// serial.js - JavaScript Web Serial API for DataFeel Dots
+// serial.js - JavaScript Web Serial API with Full Modbus RTU Support for DataFeel Dots
 let port;
 let writer;
 let reader;
 let connected = false;
+let pollingInterval = null;
 
-// Define the DataFeel Modbus Register Addresses
+// Modbus RTU Function Codes (As per DataFeel documentation)
+const MODBUS_FUNCTION_CODES = {
+    READ_HOLDING_REGISTERS: 0x03,
+    WRITE_SINGLE_REGISTER: 0x06,
+    WRITE_MULTIPLE_REGISTERS: 0x10
+};
+
+// DataFeel Modbus Register Addresses (As per documentation)
 const REGISTER_ADDRESSES = {
     DEVICE_NAME: 0, // Readable register for handshake
     VIBRATION_MODE: 1036,
@@ -18,12 +26,12 @@ const REGISTER_ADDRESSES = {
     THERMAL_SKIN_TEMP_TARGET: 1034
 };
 
-// Connect to Serial Port
+// Connect to Serial Port with Modbus RTU support
 async function connectToSerial() {
     try {
         console.log("🔌 Requesting USB connection...");
         port = await navigator.serial.requestPort();
-        await port.open({ baudRate: 115200 });
+        await port.open({ baudRate: 115200, dataBits: 8, stopBits: 1, parity: "none", flowControl: "none" });
 
         writer = port.writable.getWriter();
         reader = port.readable.getReader();
@@ -31,12 +39,11 @@ async function connectToSerial() {
 
         console.log("✅ Connected to DataFeel via USB.");
 
-        // Send Handshake and Initialization
+        // Perform a handshake with the device
         await sendHandshake();
-        await sendInitializationCommands();
-
-        // Start listening for responses
-        readSerialData();
+        
+        // Start continuous polling for real-time data updates
+        startContinuousPolling();
 
         return true;
     } catch (error) {
@@ -46,17 +53,13 @@ async function connectToSerial() {
     }
 }
 
-// 🖐️ Send Handshake - Wake up and verify connection
+// 🖐️ Send Modbus Handshake - Verify connection with DataFeel
 async function sendHandshake() {
     try {
         console.log("🖐️ Sending handshake...");
 
-        // Wake-up signal (Tell Dot to start listening)
-        await sendCommand(REGISTER_ADDRESSES.VIBRATION_GO, 1);
-        await new Promise(resolve => setTimeout(resolve, 300)); // Small delay
-
-        // Read Device Name to confirm handshake
-        let deviceName = await readRegister(REGISTER_ADDRESSES.DEVICE_NAME);
+        // Read Device Name to verify connection
+        let deviceName = await readModbusRegister(REGISTER_ADDRESSES.DEVICE_NAME, 2);
         if (deviceName) {
             console.log(`✅ Handshake successful: Device Name - ${deviceName}`);
         } else {
@@ -67,50 +70,44 @@ async function sendHandshake() {
     }
 }
 
-// 📖 Read Serial Data (For debugging and checking responses)
-async function readSerialData() {
-    const decoder = new TextDecoder();
-    while (connected) {
+// 🌐 Continuous Polling Loop for Real-Time Data
+function startContinuousPolling() {
+    if (pollingInterval) clearInterval(pollingInterval);
+
+    pollingInterval = setInterval(async () => {
+        if (!connected) return;
+        
         try {
-            const { value, done } = await reader.read();
-            if (done) {
-                console.log("📴 Serial connection closed.");
-                break;
-            }
-            let response = decoder.decode(value);
-            console.log("📥 Received from DataFeel:", response);
+            // Read critical values from the device every second
+            let thermalIntensity = await readModbusRegister(REGISTER_ADDRESSES.THERMAL_INTENSITY, 2);
+            console.log("🌡️ Thermal Intensity:", thermalIntensity);
+
+            let vibrationIntensity = await readModbusRegister(REGISTER_ADDRESSES.VIBRATION_INTENSITY, 2);
+            console.log("🔄 Vibration Intensity:", vibrationIntensity);
+            
         } catch (error) {
-            console.error("❌ Error reading serial:", error);
-            break;
+            console.error("❌ Polling error:", error);
         }
-    }
+    }, 1000); // Poll every second
 }
 
-// 🔧 Send initialization commands to DataFeel
-async function sendInitializationCommands() {
-    if (!writer) return;
-
+// 📖 Read DataFeel Registers using Modbus RTU
+async function readModbusRegister(register, length) {
     try {
-        console.log("🛠 Initializing DataFeel device...");
+        let modbusRequest = buildModbusRTURequest(1, MODBUS_FUNCTION_CODES.READ_HOLDING_REGISTERS, register, length);
+        await writer.write(modbusRequest);
 
-        const initCommands = [
-            { register: REGISTER_ADDRESSES.VIBRATION_MODE, value: 1 }, // MANUAL Mode
-            { register: REGISTER_ADDRESSES.LED_MODE, value: 1 }, // MANUAL LED Mode
-            { register: REGISTER_ADDRESSES.THERMAL_MODE, value: 1 } // MANUAL Thermal Mode
-        ];
-
-        for (let cmd of initCommands) {
-            await sendCommand(cmd.register, cmd.value);
-            await new Promise(resolve => setTimeout(resolve, 300)); // Delay between commands
-        }
-
-        console.log("✅ Initialization Complete.");
+        const { value } = await reader.read();
+        let response = parseModbusRTUResponse(value);
+        console.log(`📥 Read Register ${register}:`, response);
+        return response;
     } catch (error) {
-        console.error("❌ Error initializing DataFeel:", error);
+        console.error(`❌ Error reading Register ${register}:`, error);
+        return null;
     }
 }
 
-// 🚀 Convert JSON haptic command into DataFeel commands
+// 🚀 Convert JSON haptic command into Modbus RTU writes
 async function sendHapticCommand(hapticData) {
     if (!connected || !writer) {
         console.error("❌ No Serial connection found!");
@@ -119,7 +116,7 @@ async function sendHapticCommand(hapticData) {
 
     try {
         console.log("🔵 Sending Wake-Up Signal...");
-        await sendCommand(REGISTER_ADDRESSES.VIBRATION_GO, 1);
+        await writeModbusRegister(REGISTER_ADDRESSES.VIBRATION_GO, 1);
         await new Promise(resolve => setTimeout(resolve, 300));
 
         for (let device of hapticData) {
@@ -128,20 +125,17 @@ async function sendHapticCommand(hapticData) {
             for (let command of device.commands) {
                 console.log(`➡️ Sending Command: ${JSON.stringify(command)}`);
 
-                // Send vibration settings
                 if (command.vibration) {
-                    await sendCommand(REGISTER_ADDRESSES.VIBRATION_INTENSITY, command.vibration.intensity);
-                    await sendCommand(REGISTER_ADDRESSES.VIBRATION_FREQUENCY, command.vibration.frequency);
+                    await writeModbusRegister(REGISTER_ADDRESSES.VIBRATION_INTENSITY, command.vibration.intensity);
+                    await writeModbusRegister(REGISTER_ADDRESSES.VIBRATION_FREQUENCY, command.vibration.frequency);
                 }
 
-                // Send thermal settings
                 if (command.thermal) {
-                    await sendCommand(REGISTER_ADDRESSES.THERMAL_INTENSITY, command.thermal.intensity);
+                    await writeModbusRegister(REGISTER_ADDRESSES.THERMAL_INTENSITY, command.thermal.intensity);
                 }
 
-                // Send LED settings
                 if (command.light) {
-                    await sendCommand(REGISTER_ADDRESSES.GLOBAL_MANUAL, rgbToHex(command.light.rgb));
+                    await writeModbusRegister(REGISTER_ADDRESSES.GLOBAL_MANUAL, rgbToHex(command.light.rgb));
                 }
 
                 await new Promise(resolve => setTimeout(resolve, 500)); // Prevent overload
@@ -153,34 +147,48 @@ async function sendHapticCommand(hapticData) {
     }
 }
 
-// 🔄 Function to send register commands via Web Serial API
-async function sendCommand(register, value) {
+// 🔧 Function to write to a Modbus register
+async function writeModbusRegister(register, value) {
     try {
-        let jsonString = JSON.stringify({ register: register, value: value }) + "\n";
-        let encoder = new TextEncoder();
-        await writer.write(encoder.encode(jsonString));
-        console.log(`✅ Sent Register ${register}: ${value}`);
+        let modbusRequest = buildModbusRTURequest(1, MODBUS_FUNCTION_CODES.WRITE_SINGLE_REGISTER, register, value);
+        await writer.write(modbusRequest);
+        console.log(`✅ Wrote Register ${register}: ${value}`);
     } catch (error) {
-        console.error("❌ Error writing to serial:", error);
+        console.error("❌ Error writing to Modbus register:", error);
     }
 }
 
-// 🔍 Function to read a register from DataFeel
-async function readRegister(register) {
-    try {
-        let jsonString = JSON.stringify({ register: register, read: true }) + "\n";
-        let encoder = new TextEncoder();
-        await writer.write(encoder.encode(jsonString));
+// 🏗️ Build a Modbus RTU request frame
+function buildModbusRTURequest(slaveID, functionCode, register, value) {
+    let frame = new Uint8Array(8);
+    frame[0] = slaveID;
+    frame[1] = functionCode;
+    frame[2] = (register >> 8) & 0xFF;
+    frame[3] = register & 0xFF;
+    frame[4] = (value >> 8) & 0xFF;
+    frame[5] = value & 0xFF;
 
-        const decoder = new TextDecoder();
-        let { value } = await reader.read();
-        let response = decoder.decode(value);
-        console.log(`🔎 Read Register ${register}: ${response}`);
-        return response;
-    } catch (error) {
-        console.error(`❌ Error reading Register ${register}:`, error);
-        return null;
+    let crc = calculateCRC(frame.subarray(0, 6));
+    frame[6] = crc & 0xFF;
+    frame[7] = (crc >> 8) & 0xFF;
+    return frame;
+}
+
+// 🧮 CRC Calculation for Modbus RTU
+function calculateCRC(buffer) {
+    let crc = 0xFFFF;
+    for (let i = 0; i < buffer.length; i++) {
+        crc ^= buffer[i];
+        for (let j = 0; j < 8; j++) {
+            if (crc & 0x0001) {
+                crc >>= 1;
+                crc ^= 0xA001;
+            } else {
+                crc >>= 1;
+            }
+        }
     }
+    return crc;
 }
 
 // 🎨 Convert RGB values to a hex integer (used for LED commands)
