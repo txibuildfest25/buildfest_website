@@ -1,48 +1,61 @@
 <!DOCTYPE html>
 <html lang="en">
-<head>
-    <meta charset="UTF-8">
+  <head>
+    <meta charset="UTF-8" />
     <title>Banned Books Immersive Experience</title>
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <link rel="stylesheet" href="style.css">
-    <link rel="stylesheet" href="https://dyslexiefont.com/assets/css/dyslexiefont.css">
-</head>
-<body>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link rel="stylesheet" href="style.css" />
+    <link rel="stylesheet" href="https://cdn.dyslexiefont.com/css/Dyslexie.css" />
+  </head>
+  <body>
     <header>
-        <h1>Banned Books Immersive Experience</h1>
+      <h1>Banned Books Immersive Experience</h1>
     </header>
-    <main>
-        <!-- Story Selection -->
-        <section id="story-selection">
-            <label for="story">Choose a Story:</label>
-            <select id="story">
-                <option value="giver">The Giver</option>
-                <option value="example_text">Example Text</option>
-                <option value="james_giant_peach">James' Giant Peach</option>
-                <option value="the_great_gatsby">The Great Gatsby</option>
-            </select>
-        </section>
+    <main role="main">
+      <!-- Story Selection -->
+      <section id="story-selection" aria-label="Select a Story">
+        <label for="story">Choose a Story:</label>
+        <select id="story">
+          <option value="giver">The Giver</option>
+          <option value="example_text">Example Text</option>
+          <option value="james_giant_peach">James' Giant Peach</option>
+          <option value="perks_of_being_wallflower">Perks of Being a Wallflower</option>
+          <option value="the_great_gatsby">The Great Gatsby</option>
+        </select>
+      </section>
 
-        <!-- Dyslexia Mode Toggle -->
-        <section id="accessibility-settings">
-            <label for="dyslexiaToggle">Dyslexia Mode:</label>
-            <input type="checkbox" id="dyslexiaToggle">
-        </section>
+      <!-- Pace Control -->
+      <section id="pace-control" aria-label="Pace Control">
+        <label for="pace">Reading Pace (seconds per sentence):</label>
+        <input type="number" id="pace" min="0.5" max="10" step="0.5" value="2" />
+      </section>
 
-        <!-- Display the Text with Sentifiction Background -->
-        <article id="book-text" class="text-box">
-            <p id="textContent"></p>
-        </article>
+      <!-- Dyslexia-Friendly Font Toggle -->
+      <section id="dyslexia-toggle">
+        <label for="dyslexiaMode">Enable Dyslexia-Friendly Font:</label>
+        <input type="checkbox" id="dyslexiaMode">
+      </section>
 
-        <!-- TTS Controls -->
-        <section id="controls">
-            <label for="rate">Speech Rate:</label>
-            <input type="range" id="rate" min="0.5" max="2" step="0.1" value="1">
-            <button id="play">Play Narration</button>
-        </section>
+      <!-- Display the Text -->
+      <article id="book-text" tabindex="0" aria-label="Banned book text">
+        <p id="textContent">
+          <!-- Text will be loaded dynamically based on story selection -->
+        </p>
+      </article>
+
+      <!-- TTS Controls -->
+      <section id="controls" aria-label="Text-to-Speech Controls">
+        <label for="rate">Speech Rate:</label>
+        <input type="range" id="rate" name="rate" min="0.5" max="2" step="0.1" value="1" />
+        <button id="play">Play Narration</button>
+      </section>
     </main>
+    <footer>
+      <p>Built for BuildFest 2025 &copy; Your Name</p>
+    </footer>
 
+    <!-- Load Pyodide -->
     <script src="https://cdn.jsdelivr.net/pyodide/v0.23.2/full/pyodide.js"></script>
     <script src="app.js"></script>
-</body>
+  </body>
 </html>
