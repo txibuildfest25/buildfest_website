@@ -17,7 +17,7 @@ const REGISTER_ADDRESSES = {
     THERMAL_SKIN_TEMP_TARGET: 1034
 };
 
-// Connect to Serial Port
+// ✅ Connect to Serial Port (PERSISTENT CONNECTION)
 async function connectToSerial() {
     try {
         console.log("🔌 Requesting USB connection...");
@@ -33,7 +33,7 @@ async function connectToSerial() {
         // Send Initialization Commands
         await sendInitializationCommands();
 
-        // Start listening for data
+        // Start listening for incoming data
         readSerialData();
 
         return true;
@@ -44,7 +44,7 @@ async function connectToSerial() {
     }
 }
 
-// Send initialization commands to DataFeel
+// ✅ Send Initialization Commands to DataFeel
 async function sendInitializationCommands() {
     if (!writer) return;
 
@@ -68,7 +68,7 @@ async function sendInitializationCommands() {
     }
 }
 
-// Read incoming serial data
+// ✅ Keep Listening for DataFeel Responses (PERSISTENT LISTENER)
 async function readSerialData() {
     const decoder = new TextDecoder();
     while (connected) {
@@ -86,7 +86,7 @@ async function readSerialData() {
     }
 }
 
-// Convert JSON haptic command into DataFeel commands
+// ✅ Send JSON Haptic Command to DataFeel (CONTINUOUS CONNECTION)
 async function sendHapticCommand(hapticData) {
     if (!connected || !writer) {
         console.error("❌ No Serial connection found!");
@@ -129,7 +129,7 @@ async function sendHapticCommand(hapticData) {
     }
 }
 
-// Function to send register commands via Web Serial API
+// ✅ Function to Send Register Commands via Web Serial API
 async function sendCommand(register, value) {
     try {
         let jsonString = JSON.stringify({ register: register, value: value }) + "\n";
@@ -141,11 +141,11 @@ async function sendCommand(register, value) {
     }
 }
 
-// Convert RGB values to a hex integer (used for LED commands)
+// ✅ Convert RGB to Hex Integer (Used for LED Commands)
 function rgbToHex(rgb) {
     let [r, g, b] = rgb;
     return (b << 16) | (r << 8) | g;
 }
 
-// Export functions for app.js
+// ✅ Export Functions for `app.js`
 export { connectToSerial, sendHapticCommand };
