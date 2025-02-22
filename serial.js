@@ -17,7 +17,7 @@ const REGISTER_ADDRESSES = {
     THERMAL_SKIN_TEMP_TARGET: 1034
 };
 
-// ✅ Connect to Serial Port (PERSISTENT CONNECTION)
+// ✅ Connect to Serial Port (Persistent)
 async function connectToSerial() {
     try {
         console.log("🔌 Requesting USB connection...");
@@ -63,6 +63,14 @@ async function sendInitializationCommands() {
         }
 
         console.log("✅ Initialization Complete.");
+
+        // 🚀 Extra Wake-Up Commands
+        console.log("🔵 Sending Extra Wake-Up Signals...");
+        for (let i = 0; i < 3; i++) {
+            await sendCommand(REGISTER_ADDRESSES.VIBRATION_GO, 1);
+            await new Promise(resolve => setTimeout(resolve, 500)); // Longer delay
+        }
+
     } catch (error) {
         console.error("❌ Error initializing DataFeel:", error);
     }
@@ -86,7 +94,7 @@ async function readSerialData() {
     }
 }
 
-// ✅ Send JSON Haptic Command to DataFeel (CONTINUOUS CONNECTION)
+// ✅ Send JSON Haptic Command to DataFeel (Continuous Connection)
 async function sendHapticCommand(hapticData) {
     if (!connected || !writer) {
         console.error("❌ No Serial connection found!");
@@ -120,7 +128,7 @@ async function sendHapticCommand(hapticData) {
                     await sendCommand(REGISTER_ADDRESSES.GLOBAL_MANUAL, rgbToHex(command.light.rgb));
                 }
 
-                await new Promise(resolve => setTimeout(resolve, 500)); // Prevent overload
+                await new Promise(resolve => setTimeout(resolve, 800)); // 🚀 Increased delay
             }
         }
     } catch (error) {
