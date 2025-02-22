@@ -5,6 +5,7 @@
     <title>Banned Books Immersive Experience</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <link rel="stylesheet" href="style.css" />
+    <!-- OpenDyslexic font for dyslexia-friendly mode -->
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/antijingoist/open-dyslexic/font.css" />
   </head>
   <body>
@@ -31,15 +32,15 @@
       </section>
 
       <!-- Dyslexia-Friendly Font Toggle -->
-      <section id="dyslexia-toggle">
+      <section id="dyslexia-toggle" aria-label="Dyslexia Font Toggle">
         <label for="dyslexiaMode">Enable Dyslexia-Friendly Font:</label>
-        <input type="checkbox" id="dyslexiaMode">
+        <input type="checkbox" id="dyslexiaMode" />
       </section>
 
       <!-- Display the Text -->
       <article id="book-text" tabindex="0" aria-label="Banned book text">
         <p id="textContent">
-          <!-- Text will be loaded dynamically based on story selection -->
+          <!-- Story text will be loaded dynamically -->
         </p>
       </article>
 
@@ -47,6 +48,10 @@
       <section id="controls" aria-label="Text-to-Speech Controls">
         <label for="rate">Speech Rate:</label>
         <input type="range" id="rate" name="rate" min="0.5" max="2" step="0.1" value="1" />
+        <label for="pitch">Pitch:</label>
+        <input type="range" id="pitch" name="pitch" min="0" max="2" step="0.1" value="1" />
+        <label for="volume">Volume:</label>
+        <input type="range" id="volume" name="volume" min="0" max="1" step="0.1" value="1" />
         <button id="play">Play Narration</button>
       </section>
     </main>
@@ -56,6 +61,7 @@
 
     <!-- Load Pyodide -->
     <script src="https://cdn.jsdelivr.net/pyodide/v0.23.2/full/pyodide.js"></script>
+    <!-- Load our JavaScript -->
     <script src="app.js"></script>
   </body>
 </html>
