@@ -11,18 +11,19 @@ async function connectToSerial() {
     try {
         console.log("🔌 Requesting USB connection...");
         port = await navigator.serial.requestPort();
-        await port.open({ baudRate: 115200 });
+        await port.open({ baudRate: 128000, bufferSize: 64 }); // Ensure baud rate matches your device
 
-        // Create writer & reader for communication
         writer = port.writable.getWriter();
         reader = port.readable.getReader();
         connected = true;
+
         console.log("✅ Connected to DataFeel via USB.");
 
-        // Initialize the DataFeel device
-        await initializeDevice();
+        // Send an "activation" signal to wake up the device
+        console.log("🛠 Initializing DataFeel device...");
+        await sendInitializationCommands();
 
-        // Start listening for responses from the DataFeel device
+        // Start listening for responses from DataFeel
         readSerialData();
 
         return true;
@@ -32,6 +33,7 @@ async function connectToSerial() {
         return false;
     }
 }
+
 
 /**
  * Initialize DataFeel by setting it to manual mode.
@@ -81,6 +83,8 @@ async function readSerialData() {
     }
 }
 
+
+
 /**
  * Send haptic commands to the DataFeel device.
  * @param {Array} hapticData - Array of haptic commands per address.
@@ -92,30 +96,32 @@ async function sendHapticCommand(hapticData) {
     }
 
     try {
+        console.log("🔵 Sending Wake-Up Signal to DataFeel...");
+        let activateSignal = JSON.stringify({ "activate": true }) + "\n";
+        let encoder = new TextEncoder();
+        await writer.write(encoder.encode(activateSignal));
+        await new Promise(resolve => setTimeout(resolve, 300)); // Small delay
+
         for (let device of hapticData) {
             console.log(`🎯 Sending to DataFeel Address ${device.address}`);
 
             for (let command of device.commands) {
-                // Fix waveform naming issue: Remove "_P100"
                 if (command.vibration && command.vibration.waveform) {
                     command.vibration.waveform = command.vibration.waveform.replace("_P100", "");
                 }
 
                 console.log(`➡️ Sending Command: ${JSON.stringify(command)}`);
 
-                let jsonString = JSON.stringify([{
+                let jsonString = JSON.stringify([{ 
                     address: device.address,
                     commands: [command]
-                }]) + "\n";
+                }]) + "\n"; // Append newline
 
-                let encoder = new TextEncoder();
-                let encodedData = encoder.encode(jsonString);
-
-                await writer.write(encodedData);
+                await writer.write(encoder.encode(jsonString));
                 await writer.ready;
                 console.log("✅ Successfully sent command:", jsonString);
 
-                await new Promise(resolve => setTimeout(resolve, 500)); // Prevent buffer overload
+                await new Promise(resolve => setTimeout(resolve, 500)); // Prevent overload
             }
         }
     } catch (error) {
@@ -123,6 +129,8 @@ async function sendHapticCommand(hapticData) {
         alert("Failed to send haptic feedback.");
     }
 }
+
+
 
 // Export functions for use in app.js
 export { connectToSerial, sendHapticCommand };
