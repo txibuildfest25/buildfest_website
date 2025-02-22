@@ -98,7 +98,7 @@ async function readModbusRegister(register, length) {
         await writer.write(modbusRequest);
 
         const { value } = await reader.read();
-        let response = parseModbusRTUResponse(value);
+        let response = parseModbusRTUResponse(value, length);
         console.log(`📥 Read Register ${register}:`, response);
         return response;
     } catch (error) {
@@ -189,6 +189,24 @@ function calculateCRC(buffer) {
         }
     }
     return crc;
+}
+
+// 🔄 **NEW: Parse Modbus RTU Response**
+function parseModbusRTUResponse(buffer, length) {
+    if (!buffer || buffer.length < 5) return null; // Minimum response size
+
+    let slaveID = buffer[0];
+    let functionCode = buffer[1];
+    let byteCount = buffer[2];
+
+    if (functionCode !== MODBUS_FUNCTION_CODES.READ_HOLDING_REGISTERS) return null;
+
+    let responseData = [];
+    for (let i = 0; i < byteCount; i += 2) {
+        responseData.push((buffer[3 + i] << 8) | buffer[3 + i + 1]);
+    }
+
+    return responseData.slice(0, length);
 }
 
 // 🎨 Convert RGB values to a hex integer (used for LED commands)
