@@ -2,11 +2,9 @@
 const synth = window.speechSynthesis;
 const playBtn = document.getElementById('play');
 const rateInput = document.getElementById('rate');
-const pitchInput = document.getElementById('pitch');
-const volumeInput = document.getElementById('volume');
 const textContentElem = document.getElementById('textContent');
 const storySelect = document.getElementById('story');
-const paceInput = document.getElementById('pace');
+const dyslexiaToggle = document.getElementById('dyslexiaToggle');
 
 let sentences = [];
 let currentSentenceIndex = 0;
@@ -14,57 +12,93 @@ let hapticData = null;
 
 // --- Load Text & Haptic Data ---
 async function loadTextAndHaptics(storyId) {
-  const textResponse = await fetch(`texts/${storyId}.txt`);
-  const text = await textResponse.text();
-  textContentElem.innerText = text;
-  sentences = text.match(/[^\.!\?]+[\.!\?]+/g) || [];
-  currentSentenceIndex = 0;
+    const textResponse = await fetch(`texts/${storyId}.txt`);
+    const text = await textResponse.text();
+    textContentElem.innerText = text;
+    sentences = text.match(/[^\.!\?]+[\.!\?]+/g) || [];
+    currentSentenceIndex = 0;
 
-  const jsonResponse = await fetch(`haptics/${storyId}_haptic_output.json`);
-  hapticData = await jsonResponse.json();
+    const jsonResponse = await fetch(`haptics/${storyId}_haptic_output.json`);
+    hapticData = await jsonResponse.json();
 }
 
 storySelect.addEventListener('change', () => loadTextAndHaptics(storySelect.value));
 
-// --- Pyodide Initialization ---
-async function initPyodide() {
-  window.pyodide = await loadPyodide();
-  const response = await fetch("send_haptics.py");
-  const code = await response.text();
-  window.pyodide.runPython(code);
+// --- Emotion to Sentifiction Color Mapping ---
+const emotionColors = {
+    "Awe": "#DFFFD6",
+    "Fear": "#B22222",
+    "Sadness": "#708090",
+    "Sorrow": "#800080",
+    "Guilt": "#8B4513",
+    "Regret": "#D2691E",
+    "Anxiety": "#FFD700"
+};
+
+// --- Set Background Color Based on Emotion ---
+function setBackgroundColor(sentenceIndex) {
+    if (!hapticData) return;
+    
+    const sentenceData = hapticData.find(h => h.sentence_number === sentenceIndex + 1);
+    if (!sentenceData || !sentenceData.normalized_emotion_scores) return;
+
+    // Find dominant emotion
+    let maxEmotion = null;
+    let maxScore = 0;
+    for (const [emotion, score] of Object.entries(sentenceData.normalized_emotion_scores)) {
+        if (score > maxScore) {
+            maxEmotion = emotion;
+            maxScore = score;
+        }
+    }
+
+    // Apply background color based on dominant emotion
+    if (maxEmotion && emotionColors[maxEmotion]) {
+        document.getElementById("book-text").style.backgroundColor = emotionColors[maxEmotion];
+    }
 }
-initPyodide();
+
+// --- Send Haptic Feedback ---
+async function sendHapticCommand(sentenceIndex) {
+    if (!hapticData) return;
+    const hapticCommands = hapticData.find(h => h.sentence_number === sentenceIndex + 1)?.haptic_commands || [];
+
+    if (window.pyodide && hapticCommands.length) {
+        await window.pyodide.runPythonAsync(`send_haptic_for_sentence(${JSON.stringify(hapticCommands)})`);
+    }
+}
 
 // --- TTS with Haptic Sync ---
 function speakSentence(sentence) {
-  const utterance = new SpeechSynthesisUtterance(sentence);
-  utterance.rate = parseFloat(rateInput.value);
-  utterance.pitch = parseFloat(pitchInput.value);
-  utterance.volume = parseFloat(volumeInput.value);
+    const utterance = new SpeechSynthesisUtterance(sentence);
+    utterance.rate = parseFloat(rateInput.value);
 
-  utterance.onstart = async () => {
-    console.log(`Speaking: ${sentence}`);
+    utterance.onstart = async () => {
+        setBackgroundColor(currentSentenceIndex); // Change background color
+        await sendHapticCommand(currentSentenceIndex); // Send haptic feedback
+    };
 
-    const hapticCommands = hapticData.find(h => h.sentence_number === currentSentenceIndex + 1)?.haptic_commands || [];
+    utterance.onend = () => {
+        currentSentenceIndex++;
+        if (currentSentenceIndex < sentences.length) {
+            speakSentence(sentences[currentSentenceIndex]);
+        }
+    };
 
-    if (window.pyodide && hapticCommands.length) {
-      await window.pyodide.runPythonAsync(`send_haptic_for_sentence(${JSON.stringify(hapticCommands)})`);
-    }
-  };
-
-  utterance.onend = () => {
-    currentSentenceIndex++;
-    if (currentSentenceIndex < sentences.length) {
-      setTimeout(() => speakSentence(sentences[currentSentenceIndex]), parseFloat(paceInput.value) * 1000);
-    } else {
-      console.log("Narration complete.");
-    }
-  };
-
-  synth.speak(utterance);
+    synth.speak(utterance);
 }
 
+// --- Play Button Event ---
 playBtn.addEventListener('click', () => {
-  if (synth.speaking) synth.cancel();
-  if (sentences.length > 0) speakSentence(sentences[currentSentenceIndex]);
+    if (synth.speaking) synth.cancel();
+    if (sentences.length > 0) speakSentence(sentences[currentSentenceIndex]);
+});
+
+// --- Dyslexia Font Toggle ---
+dyslexiaToggle.addEventListener('change', () => {
+    if (dyslexiaToggle.checked) {
+        textContentElem.classList.add("dyslexie");
+    } else {
+        textContentElem.classList.remove("dyslexie");
+    }
 });
