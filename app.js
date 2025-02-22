@@ -2,6 +2,7 @@ import { connectToDot, sendHapticCommand } from "./ble.js";
 
 const synth = window.speechSynthesis;
 const playBtn = document.getElementById('play');
+const connectBtn = document.getElementById('connectBluetooth'); // New button
 const storySelect = document.getElementById('story');
 const textContentElem = document.getElementById('textContent');
 const paceInput = document.getElementById('pace');
@@ -10,14 +11,15 @@ let sentences = [];
 let currentSentenceIndex = 0;
 let hapticData = null;
 
-// Ensure Bluetooth connects before narration
-async function initializeBluetooth() {
+// ✅ User must click the "Connect" button before Web Bluetooth is allowed
+connectBtn.addEventListener("click", async () => {
     let connected = await connectToDot();
-    if (!connected) {
-        alert("Failed to connect to DataFeel device. Please try again.");
+    if (connected) {
+        alert("Connected to DataFeel device!");
+    } else {
+        alert("Failed to connect. Please try again.");
     }
-}
-initializeBluetooth();
+});
 
 // Load text & corresponding haptic JSON
 async function loadTextAndHaptics(storyId) {

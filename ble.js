@@ -3,9 +3,9 @@ let dotDevice;
 let primaryService;
 let hapticCharacteristic;
 
-// UUIDs (These should be determined via a BLE scan!)
-const SERVICE_UUID = "0000xxxx-0000-1000-8000-00805f9b34fb";  // Replace with actual UUID
-const CHARACTERISTIC_UUID = "0000xxxx-0000-1000-8000-00805f9b34fb"; // Replace with actual UUID
+// UUIDs (Replace with actual UUIDs after scanning)
+const SERVICE_UUID = "0000xxxx-0000-1000-8000-00805f9b34fb";
+const CHARACTERISTIC_UUID = "0000xxxx-0000-1000-8000-00805f9b34fb";
 
 async function connectToDot() {
     try {
@@ -24,6 +24,7 @@ async function connectToDot() {
         return true;
     } catch (error) {
         console.error("Bluetooth connection failed:", error);
+        alert("Error: Please ensure Bluetooth is on and try again.");
         return false;
     }
 }
@@ -35,7 +36,6 @@ async function sendHapticCommand(hapticData) {
         return;
     }
 
-    // Convert JSON to Uint8Array for Bluetooth transmission
     let jsonString = JSON.stringify(hapticData);
     let encoder = new TextEncoder();
     let encodedData = encoder.encode(jsonString);
@@ -45,8 +45,8 @@ async function sendHapticCommand(hapticData) {
         console.log("Haptic command sent:", jsonString);
     } catch (error) {
         console.error("Error sending haptic command:", error);
+        alert("Failed to send haptic feedback.");
     }
 }
 
-// Export functions for use in other scripts
 export { connectToDot, sendHapticCommand };
