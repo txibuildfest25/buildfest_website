@@ -1,3 +1,4 @@
+/* Root Variables */
 :root {
     --font-size: 16px;
     --line-spacing: 1.5;
@@ -5,6 +6,7 @@
     --text-color: #000;
 }
 
+/* Body Styling */
 body {
     font-family: Arial, sans-serif;
     background: var(--bg-color);
@@ -12,15 +14,91 @@ body {
     transition: background 0.3s ease, color 0.3s ease, font-size 0.3s ease, line-height 0.3s ease;
 }
 
-/* Dyslexia Mode */
-.dyslexia-mode {
-    font-family: 'OpenDyslexic', Arial, sans-serif !important;
+/* Header and Footer */
+header, footer {
+    background: #333;
+    color: white;
+    text-align: center;
+    padding: 1rem 0;
 }
 
+/* Main Container */
+main {
+    padding: 1rem;
+    max-width: 800px;
+    margin: auto;
+}
 
-/* Sentence Highlighting */
+/* Sections and Accessibility Controls */
+section {
+    margin-bottom: 1rem;
+}
+
+/* Book Text Display */
+#book-text {
+    background: var(--bg-color);
+    color: var(--text-color);
+    font-size: var(--font-size);
+    line-height: var(--line-spacing);
+    padding: 1rem;
+    border-radius: 5px;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    transition: font-size 0.3s ease, line-height 0.3s ease;
+}
+
+/* Labels and Input Elements */
+label {
+    font-weight: bold;
+    margin-right: 0.5rem;
+}
+
+input[type="range"], input[type="number"], select {
+    margin-right: 1rem;
+}
+
+/* Sentence Highlighting During Narration */
 .sentence-active {
     background-color: red;
     color: white;
     font-weight: bold;
+}
+
+/* ============================ */
+/*  ✅ Self-Hosted OpenDyslexic  */
+/* ============================ */
+@font-face {
+    font-family: 'OpenDyslexic';
+    src: url('fonts/OpenDyslexic-Regular.woff2') format('woff2'),
+         url('fonts/OpenDyslexic-Regular.otf') format('opentype');
+    font-weight: normal;
+    font-style: normal;
+}
+
+@font-face {
+    font-family: 'OpenDyslexic';
+    src: url('fonts/OpenDyslexic-Bold.woff2') format('woff2'),
+         url('fonts/OpenDyslexic-Bold.otf') format('opentype');
+    font-weight: bold;
+    font-style: normal;
+}
+
+@font-face {
+    font-family: 'OpenDyslexic';
+    src: url('fonts/OpenDyslexic-Italic.woff2') format('woff2'),
+         url('fonts/OpenDyslexic-Italic.otf') format('opentype');
+    font-weight: normal;
+    font-style: italic;
+}
+
+@font-face {
+    font-family: 'OpenDyslexic';
+    src: url('fonts/OpenDyslexic-BoldItalic.woff2') format('woff2'),
+         url('fonts/OpenDyslexic-BoldItalic.otf') format('opentype');
+    font-weight: bold;
+    font-style: italic;
+}
+
+/* Apply Dyslexia-Friendly Font */
+.dyslexia-mode {
+    font-family: 'OpenDyslexic', Arial, sans-serif !important;
 }
