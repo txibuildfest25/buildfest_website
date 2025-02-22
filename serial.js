@@ -5,14 +5,14 @@ let reader;
 let connected = false;
 let pollingInterval = null;
 
-// Modbus RTU Function Codes (As per DataFeel documentation)
+// Modbus RTU Function Codes
 const MODBUS_FUNCTION_CODES = {
     READ_HOLDING_REGISTERS: 0x03,
     WRITE_SINGLE_REGISTER: 0x06,
     WRITE_MULTIPLE_REGISTERS: 0x10
 };
 
-// DataFeel Modbus Register Addresses (As per documentation)
+// DataFeel Modbus Register Addresses (as per documentation)
 const REGISTER_ADDRESSES = {
     DEVICE_NAME: 0, // Readable register for handshake
     VIBRATION_MODE: 1036,
@@ -26,7 +26,7 @@ const REGISTER_ADDRESSES = {
     THERMAL_SKIN_TEMP_TARGET: 1034
 };
 
-// Connect to Serial Port with Modbus RTU support
+// 🔌 Connect to Serial Port with Modbus RTU support
 async function connectToSerial() {
     try {
         console.log("🔌 Requesting USB connection...");
@@ -41,7 +41,7 @@ async function connectToSerial() {
 
         // Perform a handshake with the device
         await sendHandshake();
-        
+
         // Start continuous polling for real-time data updates
         startContinuousPolling();
 
@@ -57,8 +57,6 @@ async function connectToSerial() {
 async function sendHandshake() {
     try {
         console.log("🖐️ Sending handshake...");
-
-        // Read Device Name to verify connection
         let deviceName = await readModbusRegister(REGISTER_ADDRESSES.DEVICE_NAME, 2);
         if (deviceName) {
             console.log(`✅ Handshake successful: Device Name - ${deviceName}`);
@@ -70,25 +68,23 @@ async function sendHandshake() {
     }
 }
 
-// 🌐 Continuous Polling Loop for Real-Time Data
+// 🌐 Continuous Polling for Real-Time Data
 function startContinuousPolling() {
     if (pollingInterval) clearInterval(pollingInterval);
 
     pollingInterval = setInterval(async () => {
         if (!connected) return;
-        
         try {
-            // Read critical values from the device every second
             let thermalIntensity = await readModbusRegister(REGISTER_ADDRESSES.THERMAL_INTENSITY, 2);
             console.log("🌡️ Thermal Intensity:", thermalIntensity);
 
             let vibrationIntensity = await readModbusRegister(REGISTER_ADDRESSES.VIBRATION_INTENSITY, 2);
             console.log("🔄 Vibration Intensity:", vibrationIntensity);
-            
+
         } catch (error) {
             console.error("❌ Polling error:", error);
         }
-    }, 1000); // Poll every second
+    }, 1000);
 }
 
 // 📖 Read DataFeel Registers using Modbus RTU
@@ -98,9 +94,7 @@ async function readModbusRegister(register, length) {
         await writer.write(modbusRequest);
 
         const { value } = await reader.read();
-        let response = parseModbusRTUResponse(value, length);
-        console.log(`📥 Read Register ${register}:`, response);
-        return response;
+        return parseModbusRTUResponse(value, length);
     } catch (error) {
         console.error(`❌ Error reading Register ${register}:`, error);
         return null;
@@ -125,36 +119,30 @@ async function sendHapticCommand(hapticData) {
             for (let command of device.commands) {
                 console.log(`➡️ Sending Command: ${JSON.stringify(command)}`);
 
+                await writeModbusRegister(REGISTER_ADDRESSES.VIBRATION_MODE, 1); // Ensure MANUAL mode
+                await new Promise(resolve => setTimeout(resolve, 100));
+
                 if (command.vibration) {
-                    await writeModbusRegister(REGISTER_ADDRESSES.VIBRATION_INTENSITY, command.vibration.intensity);
+                    await writeModbusRegister(REGISTER_ADDRESSES.VIBRATION_INTENSITY, floatToModbus(command.vibration.intensity));
                     await writeModbusRegister(REGISTER_ADDRESSES.VIBRATION_FREQUENCY, command.vibration.frequency);
                 }
 
                 if (command.thermal) {
-                    await writeModbusRegister(REGISTER_ADDRESSES.THERMAL_INTENSITY, command.thermal.intensity);
+                    await writeModbusRegister(REGISTER_ADDRESSES.THERMAL_INTENSITY, floatToModbus(command.thermal.intensity));
                 }
 
                 if (command.light) {
                     await writeModbusRegister(REGISTER_ADDRESSES.GLOBAL_MANUAL, rgbToHex(command.light.rgb));
                 }
 
+                // Ensure VIBRATION_GO is triggered **after settings**
+                await writeModbusRegister(REGISTER_ADDRESSES.VIBRATION_GO, 1);
                 await new Promise(resolve => setTimeout(resolve, 500)); // Prevent overload
             }
         }
     } catch (error) {
         console.error("❌ Error sending haptic command:", error);
         alert("Failed to send haptic feedback.");
-    }
-}
-
-// 🔧 Function to write to a Modbus register
-async function writeModbusRegister(register, value) {
-    try {
-        let modbusRequest = buildModbusRTURequest(1, MODBUS_FUNCTION_CODES.WRITE_SINGLE_REGISTER, register, value);
-        await writer.write(modbusRequest);
-        console.log(`✅ Wrote Register ${register}: ${value}`);
-    } catch (error) {
-        console.error("❌ Error writing to Modbus register:", error);
     }
 }
 
@@ -167,52 +155,18 @@ function buildModbusRTURequest(slaveID, functionCode, register, value) {
     frame[3] = register & 0xFF;
     frame[4] = (value >> 8) & 0xFF;
     frame[5] = value & 0xFF;
-
-    let crc = calculateCRC(frame.subarray(0, 6));
-    frame[6] = crc & 0xFF;
-    frame[7] = (crc >> 8) & 0xFF;
     return frame;
 }
 
-// 🧮 CRC Calculation for Modbus RTU
-function calculateCRC(buffer) {
-    let crc = 0xFFFF;
-    for (let i = 0; i < buffer.length; i++) {
-        crc ^= buffer[i];
-        for (let j = 0; j < 8; j++) {
-            if (crc & 0x0001) {
-                crc >>= 1;
-                crc ^= 0xA001;
-            } else {
-                crc >>= 1;
-            }
-        }
-    }
-    return crc;
-}
-
-// 🔄 **NEW: Parse Modbus RTU Response**
-function parseModbusRTUResponse(buffer, length) {
-    if (!buffer || buffer.length < 5) return null; // Minimum response size
-
-    let slaveID = buffer[0];
-    let functionCode = buffer[1];
-    let byteCount = buffer[2];
-
-    if (functionCode !== MODBUS_FUNCTION_CODES.READ_HOLDING_REGISTERS) return null;
-
-    let responseData = [];
-    for (let i = 0; i < byteCount; i += 2) {
-        responseData.push((buffer[3 + i] << 8) | buffer[3 + i + 1]);
-    }
-
-    return responseData.slice(0, length);
-}
-
-// 🎨 Convert RGB values to a hex integer (used for LED commands)
+// 🎨 Convert RGB to Hex
 function rgbToHex(rgb) {
     let [r, g, b] = rgb;
     return (b << 16) | (r << 8) | g;
+}
+
+// 🔢 Convert Float to 16-bit Modbus
+function floatToModbus(floatValue) {
+    return Math.round(floatValue * 32767);
 }
 
 // Export functions for app.js
