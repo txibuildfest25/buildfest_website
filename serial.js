@@ -32,38 +32,55 @@ async function readSerialData() {
         try {
             const { value, done } = await reader.read();
             if (done) {
-                console.log("Reader closed.");
+                console.log("📴 Reader closed.");
                 break;
             }
-            console.log("Received from DataFeel:", decoder.decode(value));
+            let receivedData = decoder.decode(value);
+            console.log("📥 Received from DataFeel:", receivedData);
         } catch (error) {
-            console.error("Error reading from serial:", error);
+            console.error("❌ Error reading from serial:", error);
             break;
         }
     }
 }
 
+
 // Function to send haptic command to DataFeel
 async function sendHapticCommand(hapticData) {
     if (!connected || !writer) {
-        console.error("No Serial connection found!");
+        console.error("❌ No Serial connection found!");
         return;
     }
 
     try {
-        let jsonString = JSON.stringify(hapticData) + "\n"; // Ensure newline termination
-        let encoder = new TextEncoder();
-        let encodedData = encoder.encode(jsonString);
+        for (let device of hapticData) {
+            console.log(`🎯 Sending to DataFeel Address ${device.address}`);
 
-        await writer.write(encodedData);
-        console.log("Sent to DataFeel:", jsonString);
+            for (let command of device.commands) {
+                console.log(`➡️ Sending Command: ${JSON.stringify(command)}`);
 
-        await writer.ready; // Ensure writer finishes sending data
+                let jsonString = JSON.stringify([{
+                    address: device.address,
+                    commands: [command]
+                }]) + "\n";
+
+                let encoder = new TextEncoder();
+                let encodedData = encoder.encode(jsonString);
+
+                await writer.write(encodedData);
+                await writer.ready;
+                console.log("✅ Successfully sent command:", jsonString);
+
+                await new Promise(resolve => setTimeout(resolve, 500)); // Small delay to prevent buffer issues
+            }
+        }
     } catch (error) {
-        console.error("Error sending haptic command:", error);
+        console.error("❌ Error sending haptic command:", error);
         alert("Failed to send haptic feedback.");
     }
 }
+
+
 
 // Export functions for use in app.js
 export { connectToSerial, sendHapticCommand };
