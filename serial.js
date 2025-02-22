@@ -6,19 +6,16 @@ let connected = false;
 
 async function connectToSerial() {
     try {
-        // Request serial port from user
         port = await navigator.serial.requestPort();
-        await port.open({ baudRate: 115200 }); // Adjust baud rate if needed
+        await port.open({ baudRate: 115200 });
 
-        // Create writer & reader for communication
         writer = port.writable.getWriter();
         reader = port.readable.getReader();
         connected = true;
         console.log("Connected to DataFeel device via USB.");
         alert("Connected to DataFeel via USB!");
 
-        // Start listening for responses from the DataFeel device
-        readSerialData();
+        readSerialData(); // Start listening for device responses
 
         return true;
     } catch (error) {
@@ -28,7 +25,7 @@ async function connectToSerial() {
     }
 }
 
-// Function to read incoming data from DataFeel
+// Function to read incoming data from DataFeel device (for debugging)
 async function readSerialData() {
     const decoder = new TextDecoder();
     while (connected) {
@@ -46,7 +43,7 @@ async function readSerialData() {
     }
 }
 
-// Function to send haptic command
+// Function to send haptic command to DataFeel
 async function sendHapticCommand(hapticData) {
     if (!connected || !writer) {
         console.error("No Serial connection found!");
@@ -54,22 +51,19 @@ async function sendHapticCommand(hapticData) {
     }
 
     try {
-        let jsonString = JSON.stringify(hapticData) + "\n"; // Add newline
+        let jsonString = JSON.stringify(hapticData) + "\n"; // Ensure newline termination
         let encoder = new TextEncoder();
         let encodedData = encoder.encode(jsonString);
 
         await writer.write(encodedData);
         console.log("Sent to DataFeel:", jsonString);
 
-        // ✅ Flush writer before closing
-        await writer.ready;
-        
+        await writer.ready; // Ensure writer finishes sending data
     } catch (error) {
         console.error("Error sending haptic command:", error);
         alert("Failed to send haptic feedback.");
     }
 }
-
 
 // Export functions for use in app.js
 export { connectToSerial, sendHapticCommand };

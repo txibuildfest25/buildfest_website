@@ -2,7 +2,7 @@ import { connectToSerial, sendHapticCommand } from "./serial.js";
 
 const synth = window.speechSynthesis;
 const playBtn = document.getElementById('play');
-const connectBtn = document.getElementById('connectUSB'); // Now used for USB connection
+const connectBtn = document.getElementById('connectUSB');
 const storySelect = document.getElementById('story');
 const textContentElem = document.getElementById('textContent');
 const paceInput = document.getElementById('pace');
@@ -15,7 +15,7 @@ let sentences = [];
 let currentSentenceIndex = 0;
 let hapticData = null;
 
-// ✅ User manually adjusts settings
+// ✅ Update Accessibility Settings (Manually Adjusted)
 function updateAccessibilitySettings() {
     document.documentElement.style.setProperty("--font-size", fontSizeInput.value + "px");
     document.documentElement.style.setProperty("--line-spacing", spacingInput.value);
@@ -33,7 +33,6 @@ function updateAccessibilitySettings() {
     }
 }
 
-// ✅ Apply user settings when adjusted
 fontSizeInput.addEventListener('input', updateAccessibilitySettings);
 spacingInput.addEventListener('input', updateAccessibilitySettings);
 contrastInput.addEventListener('input', updateAccessibilitySettings);
@@ -64,7 +63,7 @@ async function loadTextAndHaptics(storyId) {
 
 storySelect.addEventListener('change', () => loadTextAndHaptics(storySelect.value));
 
-// ✅ Narration with haptic sync via USB
+// ✅ Narration with Haptic Sync via USB
 function speakSentence(sentence) {
     const utterance = new SpeechSynthesisUtterance(sentence);
     utterance.rate = parseFloat(paceInput.value);
@@ -76,10 +75,12 @@ function speakSentence(sentence) {
         document.querySelectorAll("span").forEach(s => s.classList.remove("sentence-active"));
         sentenceElem.classList.add("sentence-active");
 
-        // Get haptic command for current sentence
+        // ✅ Get the correct haptic commands for this sentence
         const hapticCommands = hapticData.find(h => h.sentence_number === currentSentenceIndex + 1)?.haptic_commands || [];
+
         if (hapticCommands.length) {
-            await sendHapticCommand(hapticCommands); // ✅ Now sends over USB!
+            console.log(`Sending haptic feedback for sentence ${currentSentenceIndex + 1}`);
+            await sendHapticCommand(hapticCommands);  // ✅ Sends over USB
         }
     };
 
