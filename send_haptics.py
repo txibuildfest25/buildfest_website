@@ -39,7 +39,7 @@ print(f"Found {len(devices)} devices.")
 
 def send_haptic_commands(device, commands):
     for command in commands:
-        # Configure vibration settings
+        # Configure vibration
         vibration = command.get("vibration", {})
         if vibration:
             device.registers.set_vibration_mode(VibrationMode.MANUAL)

@@ -1,4 +1,3 @@
-// app.js
 document.addEventListener("DOMContentLoaded", () => {
     // Element references
     const synth = window.speechSynthesis;
@@ -10,101 +9,108 @@ document.addEventListener("DOMContentLoaded", () => {
     const fontSizeInput = document.getElementById('fontSize');
     const contrastInput = document.getElementById('contrast');
     const spacingInput = document.getElementById('spacing');
-
+  
     let sentences = [];
     let currentSentenceIndex = 0;
-
+  
     // Accessibility adjustments
     function updateAccessibility() {
-    const fontSize = fontSizeInput.value + "px";
-    const lineSpacing = spacingInput.value;
-    document.documentElement.style.setProperty("--font-size", fontSize);
-    document.documentElement.style.setProperty("--line-spacing", lineSpacing);
+      const fontSize = fontSizeInput.value + "px";
+      const lineSpacing = spacingInput.value;
+      document.documentElement.style.setProperty("--font-size", fontSize);
+      document.documentElement.style.setProperty("--line-spacing", lineSpacing);
+      // You could adjust contrast here if desired.
     }
     fontSizeInput.addEventListener('input', updateAccessibility);
     spacingInput.addEventListener('input', updateAccessibility);
     contrastInput.addEventListener('input', updateAccessibility);
-
+  
     dyslexiaToggle.addEventListener('change', () => {
-    document.body.classList.toggle('dyslexia-mode', dyslexiaToggle.checked);
+      document.body.classList.toggle('dyslexia-mode', dyslexiaToggle.checked);
     });
-
+  
     // Load text file from 'texts' folder
     async function loadText(storyId) {
-    const response = await fetch(`texts/${storyId}.txt`);
-    const text = await response.text();
-    textContentElem.innerText = text;
-    sentences = text.match(/[^\.!\?]+[\.!\?]+/g) || [];
-    currentSentenceIndex = 0;
-    synth.cancel(); // Stop any ongoing speech
+      const response = await fetch(`texts/${storyId}.txt`);
+      const text = await response.text();
+      textContentElem.innerText = text;
+      // Split the text into sentences
+      sentences = text.match(/[^\.!\?]+[\.!\?]+/g) || [];
+      currentSentenceIndex = 0;
+      synth.cancel(); // Stop any ongoing narration
     }
-
+  
     // Pyodide initialization and module loading
     async function initPyodideAndLoadModule() {
-    window.pyodide = await loadPyodide();
-    console.log("Pyodide loaded");
-    const response = await fetch("send_haptics.py");
-    const code = await response.text();
-    window.pyodide.runPython(code);
-    // Import functions from the module
-    await window.pyodide.runPythonAsync("from send_haptics import send_haptic_for_sentence, set_story");
-    window.pyodideLoaded = true;
-    console.log("send_haptics module loaded");
+      window.pyodide = await loadPyodide();
+      console.log("Pyodide loaded");
+      const response = await fetch("send_haptics.py");
+      const code = await response.text();
+      window.pyodide.runPython(code);
+      // Import functions from the module
+      await window.pyodide.runPythonAsync("from send_haptics import send_haptic_for_sentence, set_story");
+      window.pyodideLoaded = true;
+      console.log("send_haptics module loaded");
     }
     initPyodideAndLoadModule();
-
-    // Story selection handler: load text and set haptic data via Python.
+  
+    // Story selection handler: load text and update haptic data via Python.
     async function selectStory() {
-    const storyId = storySelect.value;
-    await loadText(storyId);
-    if (window.pyodideLoaded) {
+      const storyId = storySelect.value;
+      await loadText(storyId);
+      if (window.pyodideLoaded) {
         await window.pyodide.runPythonAsync(`set_story("${storyId}")`);
-    }
-    currentSentenceIndex = 0;
+      }
+      currentSentenceIndex = 0;
     }
     storySelect.addEventListener('change', selectStory);
-
-    // TTS with haptic sync: when a sentence is spoken, call the Python function.
+  
+    // TTS with haptic synchronization
     function speakSentence(sentence) {
-    const utterance = new SpeechSynthesisUtterance(sentence);
-    utterance.rate = parseFloat(paceInput.value); // You can customize as needed
-    utterance.onstart = () => {
+      const utterance = new SpeechSynthesisUtterance(sentence);
+      // Use paceInput value for delay between sentences if needed
+      utterance.rate = 1; // Adjust if necessary
+      utterance.onstart = () => {
         console.log(`Starting sentence ${currentSentenceIndex + 1}`);
         if (window.pyodideLoaded) {
-        const pace = parseFloat(paceInput.value);
-        window.pyodide.runPythonAsync(`send_haptic_for_sentence(${currentSentenceIndex}, ${pace})`)
+          const pace = parseFloat(paceInput.value);
+          window.pyodide.runPythonAsync(`send_haptic_for_sentence(${currentSentenceIndex}, ${pace})`)
             .then(() => console.log("Haptic command sent."))
             .catch(err => console.error("Error sending haptic command:", err));
         }
-        // Optionally, highlight current sentence without interfering with background.
+        // Highlight current sentence without altering background color (for "sentifiction")
         document.querySelectorAll("#book-text span").forEach(s => s.classList.remove("sentence-active"));
         const sentenceElem = document.getElementById(`sentence-${currentSentenceIndex}`);
         if (sentenceElem) {
-        sentenceElem.classList.add("sentence-active");
+          sentenceElem.classList.add("sentence-active");
         }
-    };
-    utterance.onend = () => {
+      };
+      utterance.onend = () => {
         currentSentenceIndex++;
         if (currentSentenceIndex < sentences.length) {
-        setTimeout(() => speakSentence(sentences[currentSentenceIndex]), parseFloat(paceInput.value) * 1000);
+          setTimeout(() => speakSentence(sentences[currentSentenceIndex]), parseFloat(paceInput.value) * 1000);
         } else {
-        currentSentenceIndex = 0;
-        console.log("Narration complete.");
+          currentSentenceIndex = 0;
+          console.log("Narration complete.");
         }
-    };
-    synth.speak(utterance);
+      };
+      synth.speak(utterance);
     }
-
+  
     playBtn.addEventListener('click', () => {
-    if (synth.speaking) {
+      if (synth.speaking) {
         synth.cancel();
         currentSentenceIndex = 0;
-    }
-    if (sentences.length > 0) {
+      }
+      if (sentences.length > 0) {
+        // Optionally, wrap each sentence in a <span> for highlighting.
+        const wrappedText = sentences.map((s, i) => `<span id="sentence-${i}">${s}</span>`).join(" ");
+        document.getElementById("textContent").innerHTML = wrappedText;
         speakSentence(sentences[currentSentenceIndex]);
-    }
+      }
     });
-
+  
     // On page load, load the default story.
     selectStory();
-});
+  });
+  
