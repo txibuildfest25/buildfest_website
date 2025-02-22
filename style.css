@@ -1,8 +1,9 @@
 /* General Styling */
 body {
     font-family: Arial, sans-serif;
-    background: #f8f8f8;
-    color: #333;
+    background: var(--bg-color);
+    color: var(--text-color);
+    transition: background 0.3s, color 0.3s;
 }
 
 header, footer {
@@ -14,12 +15,26 @@ header, footer {
 
 .text-box {
     padding: 20px;
-    font-size: 18px;
+    font-size: var(--font-size);
+    line-height: var(--line-spacing);
     border-radius: 5px;
     transition: background 1s;
 }
 
 /* Dyslexia Mode */
 .dyslexie {
-    font-family: 'Dyslexie Regular', sans-serif;
+    font-family: 'Dyslexie Regular', sans-serif !important;
+}
+
+/* Sentifiction Background Colors */
+.sentiment-positive {
+    background-color: #DFFFD6; /* Soft green */
+}
+
+.sentiment-neutral {
+    background-color: #FFF8DC; /* Soft yellow */
+}
+
+.sentiment-negative {
+    background-color: #FFCCCC; /* Soft red */
 }
