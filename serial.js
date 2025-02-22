@@ -6,6 +6,7 @@ let connected = false;
 
 // Define the DataFeel Modbus Register Addresses
 const REGISTER_ADDRESSES = {
+    DEVICE_NAME: 0, // Readable register for handshake
     VIBRATION_MODE: 1036,
     VIBRATION_FREQUENCY: 1038,
     VIBRATION_INTENSITY: 1040,
@@ -17,7 +18,7 @@ const REGISTER_ADDRESSES = {
     THERMAL_SKIN_TEMP_TARGET: 1034
 };
 
-// ✅ Connect to Serial Port (Persistent)
+// Connect to Serial Port
 async function connectToSerial() {
     try {
         console.log("🔌 Requesting USB connection...");
@@ -30,10 +31,11 @@ async function connectToSerial() {
 
         console.log("✅ Connected to DataFeel via USB.");
 
-        // Send Initialization Commands
+        // Send Handshake and Initialization
+        await sendHandshake();
         await sendInitializationCommands();
 
-        // Start listening for incoming data
+        // Start listening for responses
         readSerialData();
 
         return true;
@@ -44,7 +46,47 @@ async function connectToSerial() {
     }
 }
 
-// ✅ Send Initialization Commands to DataFeel
+// 🖐️ Send Handshake - Wake up and verify connection
+async function sendHandshake() {
+    try {
+        console.log("🖐️ Sending handshake...");
+
+        // Wake-up signal (Tell Dot to start listening)
+        await sendCommand(REGISTER_ADDRESSES.VIBRATION_GO, 1);
+        await new Promise(resolve => setTimeout(resolve, 300)); // Small delay
+
+        // Read Device Name to confirm handshake
+        let deviceName = await readRegister(REGISTER_ADDRESSES.DEVICE_NAME);
+        if (deviceName) {
+            console.log(`✅ Handshake successful: Device Name - ${deviceName}`);
+        } else {
+            console.error("❌ Handshake failed - No response from DataFeel.");
+        }
+    } catch (error) {
+        console.error("❌ Error during handshake:", error);
+    }
+}
+
+// 📖 Read Serial Data (For debugging and checking responses)
+async function readSerialData() {
+    const decoder = new TextDecoder();
+    while (connected) {
+        try {
+            const { value, done } = await reader.read();
+            if (done) {
+                console.log("📴 Serial connection closed.");
+                break;
+            }
+            let response = decoder.decode(value);
+            console.log("📥 Received from DataFeel:", response);
+        } catch (error) {
+            console.error("❌ Error reading serial:", error);
+            break;
+        }
+    }
+}
+
+// 🔧 Send initialization commands to DataFeel
 async function sendInitializationCommands() {
     if (!writer) return;
 
@@ -63,38 +105,12 @@ async function sendInitializationCommands() {
         }
 
         console.log("✅ Initialization Complete.");
-
-        // 🚀 Extra Wake-Up Commands
-        console.log("🔵 Sending Extra Wake-Up Signals...");
-        for (let i = 0; i < 3; i++) {
-            await sendCommand(REGISTER_ADDRESSES.VIBRATION_GO, 1);
-            await new Promise(resolve => setTimeout(resolve, 500)); // Longer delay
-        }
-
     } catch (error) {
         console.error("❌ Error initializing DataFeel:", error);
     }
 }
 
-// ✅ Keep Listening for DataFeel Responses (PERSISTENT LISTENER)
-async function readSerialData() {
-    const decoder = new TextDecoder();
-    while (connected) {
-        try {
-            const { value, done } = await reader.read();
-            if (done) {
-                console.log("📴 Serial connection closed.");
-                break;
-            }
-            console.log("📥 Received from DataFeel:", decoder.decode(value));
-        } catch (error) {
-            console.error("❌ Error reading serial:", error);
-            break;
-        }
-    }
-}
-
-// ✅ Send JSON Haptic Command to DataFeel (Continuous Connection)
+// 🚀 Convert JSON haptic command into DataFeel commands
 async function sendHapticCommand(hapticData) {
     if (!connected || !writer) {
         console.error("❌ No Serial connection found!");
@@ -128,7 +144,7 @@ async function sendHapticCommand(hapticData) {
                     await sendCommand(REGISTER_ADDRESSES.GLOBAL_MANUAL, rgbToHex(command.light.rgb));
                 }
 
-                await new Promise(resolve => setTimeout(resolve, 800)); // 🚀 Increased delay
+                await new Promise(resolve => setTimeout(resolve, 500)); // Prevent overload
             }
         }
     } catch (error) {
@@ -137,7 +153,7 @@ async function sendHapticCommand(hapticData) {
     }
 }
 
-// ✅ Function to Send Register Commands via Web Serial API
+// 🔄 Function to send register commands via Web Serial API
 async function sendCommand(register, value) {
     try {
         let jsonString = JSON.stringify({ register: register, value: value }) + "\n";
@@ -149,11 +165,29 @@ async function sendCommand(register, value) {
     }
 }
 
-// ✅ Convert RGB to Hex Integer (Used for LED Commands)
+// 🔍 Function to read a register from DataFeel
+async function readRegister(register) {
+    try {
+        let jsonString = JSON.stringify({ register: register, read: true }) + "\n";
+        let encoder = new TextEncoder();
+        await writer.write(encoder.encode(jsonString));
+
+        const decoder = new TextDecoder();
+        let { value } = await reader.read();
+        let response = decoder.decode(value);
+        console.log(`🔎 Read Register ${register}: ${response}`);
+        return response;
+    } catch (error) {
+        console.error(`❌ Error reading Register ${register}:`, error);
+        return null;
+    }
+}
+
+// 🎨 Convert RGB values to a hex integer (used for LED commands)
 function rgbToHex(rgb) {
     let [r, g, b] = rgb;
     return (b << 16) | (r << 8) | g;
 }
 
-// ✅ Export Functions for `app.js`
+// Export functions for app.js
 export { connectToSerial, sendHapticCommand };
