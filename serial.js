@@ -1,17 +1,13 @@
-// serial.js - Handles USB Serial Connection to DataFeel Dots
 let port;
 let writer;
 let reader;
 let connected = false;
 
-/**
- * Request and open a serial connection to the DataFeel device.
- */
 async function connectToSerial() {
     try {
         console.log("🔌 Requesting USB connection...");
         port = await navigator.serial.requestPort();
-        await port.open({ baudRate: 128000, bufferSize: 64 }); // Ensure baud rate matches your device
+        await port.open({ baudRate: 128000, bufferSize: 64 }); // Ensure baud rate matches DataFeel
 
         writer = port.writable.getWriter();
         reader = port.readable.getReader();
@@ -19,11 +15,10 @@ async function connectToSerial() {
 
         console.log("✅ Connected to DataFeel via USB.");
 
-        // Send an "activation" signal to wake up the device
-        console.log("🛠 Initializing DataFeel device...");
+        // ✅ Now initialize DataFeel properly
         await sendInitializationCommands();
 
-        // Start listening for responses from DataFeel
+        // ✅ Start listening for responses from DataFeel
         readSerialData();
 
         return true;
@@ -34,37 +29,33 @@ async function connectToSerial() {
     }
 }
 
+// ✅ Add missing function to initialize DataFeel
+async function sendInitializationCommands() {
+    if (!writer) return;
 
-/**
- * Initialize DataFeel by setting it to manual mode.
- */
-async function initializeDevice() {
-    console.log("🛠 Initializing DataFeel device...");
+    try {
+        console.log("🛠 Initializing DataFeel device...");
 
-    let initCommands = [
-        { "set_vibration_mode": "MANUAL" },
-        { "set_led_mode": "MANUAL" },
-        { "set_thermal_mode": "MANUAL" }
-    ];
+        const initCommands = [
+            { "set_vibration_mode": "MANUAL" },
+            { "set_led_mode": "MANUAL" },
+            { "set_thermal_mode": "MANUAL" }
+        ];
 
-    for (let cmd of initCommands) {
-        let jsonString = JSON.stringify(cmd) + "\n";
-        let encoder = new TextEncoder();
-        let encodedData = encoder.encode(jsonString);
+        for (let cmd of initCommands) {
+            let jsonString = JSON.stringify(cmd) + "\n";
+            let encoder = new TextEncoder();
+            await writer.write(encoder.encode(jsonString));
+            await new Promise(resolve => setTimeout(resolve, 300)); // Small delay between commands
 
-        try {
-            await writer.write(encodedData);
-            console.log("✅ Sent Init Command:", jsonString);
-            await new Promise(resolve => setTimeout(resolve, 200)); // Small delay to prevent overload
-        } catch (error) {
-            console.error("❌ Error initializing DataFeel:", error);
+            console.log(`✅ Sent Init Command: ${jsonString}`);
         }
+    } catch (error) {
+        console.error("❌ Error sending initialization commands:", error);
     }
 }
 
-/**
- * Listen for responses from the DataFeel device.
- */
+// ✅ Function to read responses from DataFeel
 async function readSerialData() {
     const decoder = new TextDecoder();
     while (connected) {
@@ -83,12 +74,7 @@ async function readSerialData() {
     }
 }
 
-
-
-/**
- * Send haptic commands to the DataFeel device.
- * @param {Array} hapticData - Array of haptic commands per address.
- */
+// ✅ Function to send haptic commands
 async function sendHapticCommand(hapticData) {
     if (!connected || !writer) {
         console.error("❌ No Serial connection found!");
@@ -106,10 +92,6 @@ async function sendHapticCommand(hapticData) {
             console.log(`🎯 Sending to DataFeel Address ${device.address}`);
 
             for (let command of device.commands) {
-                if (command.vibration && command.vibration.waveform) {
-                    command.vibration.waveform = command.vibration.waveform.replace("_P100", "");
-                }
-
                 console.log(`➡️ Sending Command: ${JSON.stringify(command)}`);
 
                 let jsonString = JSON.stringify([{ 
@@ -130,7 +112,5 @@ async function sendHapticCommand(hapticData) {
     }
 }
 
-
-
-// Export functions for use in app.js
+// ✅ Export functions for use in app.js
 export { connectToSerial, sendHapticCommand };
