@@ -15,12 +15,24 @@ let sentences = [];
 let currentSentenceIndex = 0;
 let hapticData = null;
 
-// ✅ Apply user-controlled accessibility settings
 function updateAccessibilitySettings() {
     document.documentElement.style.setProperty("--font-size", fontSizeInput.value + "px");
     document.documentElement.style.setProperty("--line-spacing", spacingInput.value);
-    document.documentElement.style.setProperty("--contrast", contrastInput.value);
+
+    // Convert contrast into background & text color updates
+    let contrastValue = parseFloat(contrastInput.value);
+    if (contrastValue > 1.5) {
+        document.documentElement.style.setProperty("--bg-color", "#000");
+        document.documentElement.style.setProperty("--text-color", "#fff");
+    } else if (contrastValue > 1.2) {
+        document.documentElement.style.setProperty("--bg-color", "#444");
+        document.documentElement.style.setProperty("--text-color", "#fff");
+    } else {
+        document.documentElement.style.setProperty("--bg-color", "#fff");
+        document.documentElement.style.setProperty("--text-color", "#000");
+    }
 }
+
 
 // ✅ Ensure settings update when user changes them
 fontSizeInput.addEventListener('input', updateAccessibilitySettings);
@@ -29,8 +41,13 @@ contrastInput.addEventListener('input', updateAccessibilitySettings);
 
 // ✅ Apply Dyslexia-Friendly Font
 dyslexiaToggle.addEventListener('change', () => {
-    document.body.classList.toggle('dyslexia-mode', dyslexiaToggle.checked);
+    if (dyslexiaToggle.checked) {
+        document.body.classList.add('dyslexia-mode');
+    } else {
+        document.body.classList.remove('dyslexia-mode');
+    }
 });
+
 
 // ✅ Connect Bluetooth when user clicks "Connect to DataFeel"
 connectBtn.addEventListener("click", async () => {
@@ -58,7 +75,9 @@ storySelect.addEventListener('change', () => loadTextAndHaptics(storySelect.valu
 // ✅ Narration with haptic sync
 function speakSentence(sentence) {
     const utterance = new SpeechSynthesisUtterance(sentence);
-    utterance.rate = parseFloat(paceInput.value);  // Speech speed = reading pace
+    utterance.rate = parseFloat(paceInput.value);
+    utterance.pitch = parseFloat(document.getElementById('pitch').value);
+    utterance.volume = parseFloat(document.getElementById('volume').value);
 
     utterance.onstart = async () => {
         const sentenceElem = document.getElementById(`sentence-${currentSentenceIndex}`);
@@ -83,6 +102,7 @@ function speakSentence(sentence) {
 
     synth.speak(utterance);
 }
+
 
 // ✅ Start narration when "Play" is clicked
 playBtn.addEventListener('click', () => {

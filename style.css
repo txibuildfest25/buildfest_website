@@ -9,15 +9,14 @@ body {
     font-family: Arial, sans-serif;
     background: var(--bg-color);
     color: var(--text-color);
-    font-size: var(--font-size);
-    line-height: var(--line-spacing);
-    transition: background 0.3s ease, font-size 0.3s ease, line-height 0.3s ease;
+    transition: background 0.3s ease, color 0.3s ease, font-size 0.3s ease, line-height 0.3s ease;
 }
 
 /* Dyslexia Mode */
 .dyslexia-mode {
     font-family: 'OpenDyslexic', Arial, sans-serif !important;
 }
+
 
 /* Sentence Highlighting */
 .sentence-active {
