@@ -31,9 +31,17 @@ class DataFeelApp(QWidget):
         self.speed_ms = 500  # Default speed in ms
         self.narration_running = False
         self.datafeel_devices = []
+        
 
         # Load custom fonts
         self.load_fonts()
+
+        self.font_size_label = QLabel("Font Size:")
+        self.font_size_slider = QSlider(Qt.Orientation.Horizontal)
+        self.font_size_slider.setMinimum(8)  # Minimum font size
+        self.font_size_slider.setMaximum(48)  # Maximum font size
+        self.font_size_slider.setValue(12)  # Default font size
+        self.font_size_slider.valueChanged.connect(self.update_font_size)
 
         # Initialize TTS engine
         self.tts_engine = pyttsx3.init()
@@ -87,8 +95,14 @@ class DataFeelApp(QWidget):
         self.layout.addWidget(self.play_button)
         self.layout.addWidget(self.stop_button)
         self.layout.addWidget(self.connect_button)
+        self.layout.addWidget(self.font_size_label)
+        self.layout.addWidget(self.font_size_slider)
 
         self.setLayout(self.layout)
+
+        # Load the initial story
+        self.load_story()
+
     def load_fonts(self):
         """Load Dyslexia and Atkinson Hyperlegible fonts."""
         font_dir = r"C:/Users/Alienware Edu/Desktop/Buildfest/buildfest_website/fonts"
@@ -122,6 +136,13 @@ class DataFeelApp(QWidget):
         else:
             self.book_text.setFont(QFont("Arial", 12))
             print("Applied Default Font")
+    def update_font_size(self):
+        """Update the font size of the text in the QTextBrowser."""
+        font_size = self.font_size_slider.value()
+        font = self.book_text.font()
+        font.setPointSize(font_size)
+        self.book_text.setFont(font)
+        print(f"Font size updated to {font_size}.")
 
     def connect_to_datafeel(self):
         """Scan and connect to all available DataFeel devices."""
@@ -196,7 +217,7 @@ class DataFeelApp(QWidget):
         self.reset_haptics()
 
     def speak_sentence(self):
-        """Speak the   current sentence and send haptic feedback."""
+        """Speak the current sentence and send haptic feedback."""
         if not self.narration_running or self.current_sentence_index >= len(self.sentences):
             print("✅ Narration complete.")
             return
