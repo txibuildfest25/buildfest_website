@@ -6,7 +6,7 @@ from PyQt6.QtWidgets import (
     QApplication, QWidget, QLabel, QPushButton, QVBoxLayout, QComboBox, 
     QSlider, QTextBrowser, QCheckBox, QHBoxLayout, QFileDialog
 )
-from PyQt6.QtCore import Qt
+from PyQt6.QtCore import Qt, QTimer
 from datafeel.device import discover_devices, Dot
 
 class DataFeelApp(QWidget):
@@ -21,7 +21,7 @@ class DataFeelApp(QWidget):
         # Story Selection
         self.story_label = QLabel("Choose a Story:")
         self.story_select = QComboBox()
-        self.story_select.addItems(["The Giver", "Example Text", "Example Text 2", "James' Giant Peach", "Perks of Being a Wallflower", "The Great Gatsby"])
+        self.story_select.addItems(["Giver", "Example Text", "Example Text 2", "James Giant Peach", "Perks of Being a Wallflower", "The Great Gatsby"])
         self.story_select.currentIndexChanged.connect(self.load_story)
 
         # Accessibility Settings
@@ -82,16 +82,16 @@ class DataFeelApp(QWidget):
     def load_story(self):
         story_id = self.story_select.currentText().replace(" ", "_").lower()
         
-        text_file = os.path.join(TEXT_DIR, f"{story_id}.txt")
-        json_file = os.path.join(HAPTIC_DIR, f"{story_id}_haptic_output.json")
+        text_file = os.path.join(self.TEXT_DIR, f"{story_id}.txt")
+        json_file = os.path.join(self.HAPTIC_DIR, f"{story_id}_haptic_output.json")
 
         # Check if the text file exists
         if not os.path.exists(text_file):
             print(f"❌ Error: Story text file not found: {text_file}")
         else:
             try:
-                with open(text_file, "r") as file:
-                    text = file.read()
+                with open(text_file, "r", encoding="utf-8") as f:
+                    text = f.read()
                     self.sentences = text.split(". ")
                     self.book_text.setText(text)
                 print(f"✅ Loaded story text: {text_file}")
