@@ -196,7 +196,48 @@ def normalize_and_threshold(scores, threshold=0.05):
 # ---------------------------
 # 7. Haptic Mapping and Command Generation (DataFeel API Compatible)
 # ---------------------------
-# Refined mapping for immersion; thermal temperatures clamped between 10°C and 40°C.
+# Amplify emotion scores for a more immersive experience.
+AMPLIFICATION_FACTOR = 1.5
+
+def generate_haptic_command(emotion_scores, mapping, weight_threshold=0.1):
+    commands = []
+    for emotion, score in emotion_scores.items():
+        if score >= weight_threshold and emotion in mapping:
+            # Amplify the score (cap to 1.0)
+            amplified_score = score * AMPLIFICATION_FACTOR
+            if amplified_score > 1:
+                amplified_score = 1
+
+            raw_temp = mapping[emotion]["thermal"]["temperature"]
+            # Remove lower temperature restriction; only cap upper bound at 40°C.
+            clamped_temp = raw_temp if raw_temp <= 40 else 40
+
+            # Convert light color to RGB using our color map.
+            r, g, b = color_map.get(mapping[emotion]["light"]["color"], (0, 0, 0))
+            # Convert vibration pattern to waveform (no prefix).
+            waveform = vibration_waveform_map.get(mapping[emotion]["vibration"]["pattern"], "STRONG_BUZZ_P100")
+
+            cmd = {
+                "emotion": emotion,
+                "vibration": {
+                    "intensity": round(mapping[emotion]["vibration"]["intensity"] * amplified_score, 2),
+                    "frequency": mapping[emotion]["vibration"]["frequency"],
+                    "waveform": waveform
+                },
+                "thermal": {
+                    "temperature": clamped_temp,
+                    "intensity": round((mapping[emotion]["thermal"]["intensity"] * 2) - 1, 2)
+                },
+                "light": {
+                    "rgb": [r, g, b],
+                    "intensity": round(mapping[emotion]["light"]["intensity"] * amplified_score, 2)
+                }
+            }
+            commands.append(cmd)
+    return commands
+
+# ---------------------------
+# 7.5 Define haptic_mapping BEFORE using it
 haptic_mapping = {
     "Fear": {
         "vibration": {"intensity": 0.85, "frequency": 195, "pattern": "rapid_pulse"},
@@ -260,35 +301,6 @@ haptic_mapping = {
     }
 }
 
-def generate_haptic_command(emotion_scores, mapping, weight_threshold=0.1):
-    commands = []
-    for emotion, score in emotion_scores.items():
-        if score >= weight_threshold and emotion in mapping:
-            raw_temp = mapping[emotion]["thermal"]["temperature"]
-            clamped_temp = max(10, min(40, raw_temp))
-            # Convert light color to RGB
-            r, g, b = color_map.get(mapping[emotion]["light"]["color"], (0, 0, 0))
-            # Convert vibration pattern to waveform (without prefix)
-            waveform = vibration_waveform_map.get(mapping[emotion]["vibration"]["pattern"], "STRONG_BUZZ_P100")
-            cmd = {
-                "emotion": emotion,
-                "vibration": {
-                    "intensity": round(mapping[emotion]["vibration"]["intensity"] * score, 2),
-                    "frequency": mapping[emotion]["vibration"]["frequency"],
-                    "waveform": waveform
-                },
-                "thermal": {
-                    "temperature": clamped_temp,
-                    "intensity": round((mapping[emotion]["thermal"]["intensity"] * 2) - 1, 2)
-                },
-                "light": {
-                    "rgb": [r, g, b],
-                    "intensity": round(mapping[emotion]["light"]["intensity"] * score, 2)
-                }
-            }
-            commands.append(cmd)
-    return commands
-
 # ---------------------------
 # 8. Visualization – Save Emotion Timeline Plots
 # ---------------------------
@@ -330,7 +342,6 @@ def adjust_commands_for_dot(commands, dot):
         if dot in ["right_temple", "left_temple"]:
             new_cmd["vibration"]["intensity"] = round(new_cmd["vibration"]["intensity"] * 0.8, 2)
             new_cmd["thermal"]["intensity"] = round(new_cmd["thermal"]["intensity"] * 0.5, 2)
-            # If waveform is "rapid_pulse", switch to "gentle_pulse" (using our mapping names)
             if new_cmd["vibration"]["waveform"] == "TRANSITION_HUM3_P100":
                 new_cmd["vibration"]["waveform"] = "TRANSITION_HUM2_P100"
             new_cmd["light"]["intensity"] = round(new_cmd["light"]["intensity"] * 0.9, 2)
@@ -357,7 +368,6 @@ def process_file_filtered(file_path):
             dot_commands = []
             for pos in dot_positions:
                 adjusted_cmds = adjust_commands_for_dot(base_commands, pos)
-                # Use only numerical address (omit the "dot" field)
                 dot_commands.append({
                     "address": dot_position_mapping.get(pos, 0),
                     "commands": adjusted_cmds
@@ -387,17 +397,14 @@ def process_file_all(file_path):
 # ---------------------------
 # 11. Main Processing: Read Files and Save Outputs
 # ---------------------------
-# Folders relative to the txibuildfest2025 repo:
 input_folder = "texts"     # txibuildfest2025/texts
 output_folder = "haptics"    # txibuildfest2025/haptics
 plot_folder = "plots"      # txibuildfest2025/plots
 
-# Create output directories if they don't exist.
 for folder in [output_folder, plot_folder]:
     if not os.path.exists(folder):
         os.makedirs(folder)
 
-# Process each .txt file in the input folder.
 for file_name in os.listdir(input_folder):
     if file_name.endswith(".txt"):
         full_input_path = os.path.join(input_folder, file_name)
@@ -407,6 +414,5 @@ for file_name in os.listdir(input_folder):
             json.dump(results_data, f_out, indent=4)
         print(f"Haptic output saved to {output_file}")
         
-        # Process for visualization and save the emotion timeline plot.
         all_results = process_file_all(full_input_path)
         save_emotion_timeline(all_results, file_name, plot_folder)
