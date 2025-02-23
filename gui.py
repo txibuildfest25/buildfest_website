@@ -4,7 +4,7 @@ import json
 import pyttsx3
 from PyQt6.QtWidgets import (
     QApplication, QWidget, QLabel, QPushButton, QVBoxLayout, QComboBox, 
-    QSlider, QTextBrowser, QCheckBox, QHBoxLayout, QFileDialog
+    QSlider, QTextBrowser, QCheckBox, QHBoxLayout
 )
 from PyQt6.QtCore import Qt, QTimer
 from datafeel.device import discover_devices, Dot
@@ -21,7 +21,10 @@ class DataFeelApp(QWidget):
         # Story Selection
         self.story_label = QLabel("Choose a Story:")
         self.story_select = QComboBox()
-        self.story_select.addItems(["Giver", "Example Text", "Example Text 2", "James Giant Peach", "Perks of Being a Wallflower", "The Great Gatsby"])
+        self.story_select.addItems([
+            "Giver", "Example Text", "Example Text 2", 
+            "James Giant Peach", "Perks of Being a Wallflower", "The Great Gatsby"
+        ])
         self.story_select.currentIndexChanged.connect(self.load_story)
 
         # Accessibility Settings
@@ -63,29 +66,33 @@ class DataFeelApp(QWidget):
         self.sentences = []
         self.current_sentence_index = 0
         self.haptic_data = None
-        self.datafeel_device = None
+        self.datafeel_devices = []  # Store multiple devices
         self.tts_engine = pyttsx3.init()
-
-    def connect_to_datafeel(self):
-        print("🔍 Scanning for DataFeel Devices...")
-        devices = discover_devices(4)  # Adjust max address if needed
-        if devices:
-            self.datafeel_device = devices[0]
-            print(f"✅ Connected to DataFeel Device: {self.datafeel_device}")
-        else:
-            print("❌ No DataFeel device found.")
 
     BASE_DIR = "C:/Users/Alienware Edu/Desktop/Buildfest/buildfest_website"
     TEXT_DIR = os.path.join(BASE_DIR, "texts")
     HAPTIC_DIR = os.path.join(BASE_DIR, "haptics")
 
+    def connect_to_datafeel(self):
+        """Scan and connect to all available DataFeel devices."""
+        print("🔍 Scanning for DataFeel Devices...")
+        self.datafeel_devices = discover_devices(4)  # Adjust max address if needed
+
+        if self.datafeel_devices:
+            print(f"✅ Connected to {len(self.datafeel_devices)} DataFeel devices.")
+            for device in self.datafeel_devices:
+                print(f"  ➡️ {device}")
+        else:
+            print("❌ No DataFeel devices found.")
+
     def load_story(self):
+        """Load the selected story text and haptic data."""
         story_id = self.story_select.currentText().replace(" ", "_").lower()
-        
+
         text_file = os.path.join(self.TEXT_DIR, f"{story_id}.txt")
         json_file = os.path.join(self.HAPTIC_DIR, f"{story_id}_haptic_output.json")
 
-        # Check if the text file exists
+        # Load text file
         if not os.path.exists(text_file):
             print(f"❌ Error: Story text file not found: {text_file}")
         else:
@@ -98,7 +105,7 @@ class DataFeelApp(QWidget):
             except Exception as e:
                 print(f"❌ Error reading story file: {e}")
 
-        # Check if the haptic file exists
+        # Load haptic JSON
         if not os.path.exists(json_file):
             print(f"❌ Error: Haptic JSON file not found: {json_file}")
         else:
@@ -110,6 +117,7 @@ class DataFeelApp(QWidget):
                 print(f"❌ Error reading haptic JSON: {e}")
 
     def start_narration(self):
+        """Start narrating the story."""
         if not self.sentences:
             print("❌ No story loaded.")
             return
@@ -118,6 +126,7 @@ class DataFeelApp(QWidget):
         self.speak_sentence()
 
     def speak_sentence(self):
+        """Speak the current sentence and send haptic feedback."""
         if self.current_sentence_index >= len(self.sentences):
             print("✅ Narration complete.")
             return
@@ -137,38 +146,59 @@ class DataFeelApp(QWidget):
         QTimer.singleShot(self.pace_slider.value() * 1000, self.speak_sentence)
 
     def send_haptic_feedback(self):
-        if not self.datafeel_device:
-            print("❌ No DataFeel device connected.")
+        """Send haptic commands to all connected DataFeel Dots."""
+        if not self.datafeel_devices:
+            print("❌ No DataFeel devices connected.")
             return
 
-        sentence_data = next((h for h in self.haptic_data if h["sentence_number"] == self.current_sentence_index + 1), None)
+        sentence_data = next(
+            (h for h in self.haptic_data if h["sentence_number"] == self.current_sentence_index + 1), 
+            None
+        )
+
         if not sentence_data:
             print("⚠️ No haptic data for this sentence.")
             return
 
         for command_set in sentence_data["haptic_commands"]:
-            commands = command_set["commands"]
-            for command in commands:
+            address = command_set["address"]
+
+            # Find the correct DataFeel device
+            device = next((d for d in self.datafeel_devices if d.id == address), None)
+            if not device:
+                print(f"⚠️ No device found for address {address}, skipping...")
+                continue
+
+            print(f"🎯 Sending haptic commands to DataFeel Dot {address}...")
+
+            for command in command_set["commands"]:
+                print(f"➡️ Sending Command: {command}")
+
+                # Send Vibration settings
                 if "vibration" in command:
                     vib = command["vibration"]
-                    self.datafeel_device.registers.set_vibration_mode(1)  # MANUAL mode
-                    self.datafeel_device.registers.set_vibration_intensity(vib["intensity"])
-                    self.datafeel_device.registers.set_vibration_frequency(vib["frequency"])
+                    device.registers.set_vibration_mode(1)  # MANUAL mode
+                    device.registers.set_vibration_intensity(vib["intensity"])
+                    device.registers.set_vibration_frequency(vib["frequency"])
 
+                # Send Thermal settings
                 if "thermal" in command:
                     therm = command["thermal"]
-                    self.datafeel_device.activate_thermal_intensity_control(therm["intensity"])
+                    device.activate_thermal_intensity_control(therm["intensity"])
 
+                # Send LED settings
                 if "light" in command:
                     light = command["light"]
                     r, g, b = light["rgb"]
                     brightness = int(light["intensity"] * 255)
-                    self.datafeel_device.set_led(r, g, b, brightness)
+                    device.set_led(r, g, b, brightness)
 
-        print("✅ Haptic feedback sent.")
+            print(f"✅ Haptic feedback sent to Dot {address}.")
 
 if __name__ == "__main__":
     app = QApplication(sys.argv)
     window = DataFeelApp()
     window.show()
     sys.exit(app.exec())
+
+
