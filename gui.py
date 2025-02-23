@@ -1,4 +1,5 @@
 import sys
+import os
 import json
 import pyttsx3
 from PyQt6.QtWidgets import (
@@ -74,23 +75,39 @@ class DataFeelApp(QWidget):
         else:
             print("❌ No DataFeel device found.")
 
+    BASE_DIR = "C:/Users/Alienware Edu/Desktop/Buildfest/buildfest_website"
+    TEXT_DIR = os.path.join(BASE_DIR, "texts")
+    HAPTIC_DIR = os.path.join(BASE_DIR, "haptics")
+
     def load_story(self):
         story_id = self.story_select.currentText().replace(" ", "_").lower()
-        text_file = f"texts/{story_id}.txt"
-        json_file = f"haptics/{story_id}_haptic_output.json"
+        
+        text_file = os.path.join(TEXT_DIR, f"{story_id}.txt")
+        json_file = os.path.join(HAPTIC_DIR, f"{story_id}_haptic_output.json")
 
-        try:
-            with open(text_file, "r") as file:
-                text = file.read()
-                self.sentences = text.split(". ")
-                self.book_text.setText(text)
+        # Check if the text file exists
+        if not os.path.exists(text_file):
+            print(f"❌ Error: Story text file not found: {text_file}")
+        else:
+            try:
+                with open(text_file, "r") as file:
+                    text = file.read()
+                    self.sentences = text.split(". ")
+                    self.book_text.setText(text)
+                print(f"✅ Loaded story text: {text_file}")
+            except Exception as e:
+                print(f"❌ Error reading story file: {e}")
 
-            with open(json_file, "r") as file:
-                self.haptic_data = json.load(file)
-
-            print(f"✅ Loaded story: {story_id}")
-        except Exception as e:
-            print(f"❌ Error loading story: {e}")
+        # Check if the haptic file exists
+        if not os.path.exists(json_file):
+            print(f"❌ Error: Haptic JSON file not found: {json_file}")
+        else:
+            try:
+                with open(json_file, "r") as file:
+                    self.haptic_data = json.load(file)
+                print(f"✅ Loaded haptic JSON: {json_file}")
+            except Exception as e:
+                print(f"❌ Error reading haptic JSON: {e}")
 
     def start_narration(self):
         if not self.sentences:
